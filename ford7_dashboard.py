@@ -15,7 +15,7 @@ import time
 # ==================== CONFIG ====================
 st.set_page_config(
     page_title="FORD 7 Dashboard",
-    page_icon="馃殯",
+    page_icon="🚛",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -116,7 +116,7 @@ def get_entry_summary(entry):
     return {
         'Fecha': entry['fecha'],
         'Concepto': entry['categoria'],
-        'Descripci贸n': entry['descripcion'][:50] if entry['descripcion'] else '',
+        'Descripción': entry['descripcion'][:50] if entry['descripcion'] else '',
         'Monto': f"${entry['monto']:,.2f}",
         'Tipo': entry['tipo'].upper()
     }
@@ -153,7 +153,7 @@ def extract_receipt_data(image_file):
 
 {
     "fecha": "YYYY-MM-DD (if visible, otherwise use today's date)",
-    "categoria": "one of: Gas, N贸mina, Mantenimiento, Equipo, Tolls, Comida, Otro",
+    "categoria": "one of: Gas, Nómina, Mantenimiento, Equipo, Tolls, Comida, Otro",
     "descripcion": "brief description of what was purchased",
     "monto": numeric amount only (no currency symbol),
     "tipo": "ingreso or egreso (income or expense)",
@@ -331,7 +331,7 @@ def plot_income_vs_expenses(df, days=30):
     ])
     
     fig.update_layout(
-        title=f"Ingresos vs Egresos - 脷ltimos {days} d铆as",
+        title=f"Ingresos vs Egresos - Últimos {days} días",
         barmode='group',
         xaxis_title="Fecha",
         yaxis_title="Monto ($)",
@@ -352,7 +352,7 @@ def plot_expense_breakdown(expenses):
     ])
     
     fig.update_layout(
-        title="Desglose de Gastos por Categor铆a",
+        title="Desglose de Gastos por Categoría",
         height=400
     )
     
@@ -361,7 +361,7 @@ def plot_expense_breakdown(expenses):
 def plot_forecast(df, forecast_df):
     """Plot cash flow forecast"""
     if forecast_df is None or len(forecast_df) == 0:
-        st.info("No hay datos suficientes para pron贸stico")
+        st.info("No hay datos suficientes para pronóstico")
         return
     
     df_sorted = df.sort_values('fecha')
@@ -373,7 +373,7 @@ def plot_forecast(df, forecast_df):
         x=df_sorted['fecha'],
         y=df_sorted['saldo'],
         mode='lines',
-        name='Hist贸rico',
+        name='Histórico',
         line=dict(color='#3498db', width=2)
     ))
     
@@ -382,12 +382,12 @@ def plot_forecast(df, forecast_df):
         x=forecast_df['fecha'],
         y=forecast_df['saldo_proyectado'],
         mode='lines',
-        name='Pron贸stico',
+        name='Pronóstico',
         line=dict(color='#e74c3c', width=2, dash='dash')
     ))
     
     fig.update_layout(
-        title="Pron贸stico de Saldo (30 d铆as)",
+        title="Pronóstico de Saldo (30 días)",
         xaxis_title="Fecha",
         yaxis_title="Saldo ($)",
         hovermode='x unified',
@@ -493,7 +493,7 @@ def main():
     st.markdown('<div class="header-animated">', unsafe_allow_html=True)
     col1, col2 = st.columns([1, 4])
     with col1:
-        st.markdown("## 馃殯")
+        st.markdown("## 🚛")
     with col2:
         st.markdown("# FORD 7 Dashboard")
         st.markdown("**Skaai Logistics** - Real-time Operations | Automated Receipt Processing")
@@ -501,15 +501,15 @@ def main():
     
     # Sidebar Navigation
     with st.sidebar:
-        st.title("馃搳 Navegaci贸n")
-        page = st.radio("Selecciona una secci贸n:", [
-            "馃摳 Procesar Recibos",
-            "馃搱 Dashboard",
-            "馃搵 Transacciones",
-            "馃懆鈥嶐煉?Desempe帽o Conductores",
-            "馃懇鈥嶐煉?Personal Administrativo",
-            "馃敭 Pron贸stico",
-            "鈿欙笍 Configuraci贸n"
+        st.title("📊 Navegación")
+        page = st.radio("Selecciona una sección:", [
+            "📸 Procesar Recibos",
+            "📈 Dashboard",
+            "📋 Transacciones",
+            "👨‍💼 Desempeño Conductores",
+            "👩‍💼 Personal Administrativo",
+            "🔮 Pronóstico",
+            "⚙️ Configuración"
         ])
     
     # Load data
@@ -520,11 +520,11 @@ def main():
     df = st.session_state.data_df
     
     # ================== PAGE: PROCESAR RECIBOS ==================
-    if page == "馃摳 Procesar Recibos":
+    if page == "📸 Procesar Recibos":
         st.markdown('<div class="header-animated">', unsafe_allow_html=True)
-        st.markdown("## 馃摳 Procesar Recibos", unsafe_allow_html=True)
+        st.markdown("## 📸 Procesar Recibos", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown("Sube fotos de recibos y el sistema extraer谩 autom谩ticamente los datos")
+        st.markdown("Sube fotos de recibos y el sistema extraerá automáticamente los datos")
         
         # Load last entry tracker
         last_entry_tracker = load_last_entry_tracker()
@@ -534,16 +534,16 @@ def main():
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.info(f"""
-                鉁?**脷ltima entrada registrada:** {last_entry_tracker['fecha']}  
+                ✓ **Última entrada registrada:** {last_entry_tracker['fecha']}  
                 **{last_entry_tracker['concepto']}** - ${last_entry_tracker['monto']:,.2f}  
                 *{last_entry_tracker['descripcion'][:60]}*
                 """)
             with col2:
-                if st.button("馃攧 Resetear", use_container_width=True):
+                if st.button("🔄 Resetear", use_container_width=True):
                     os.remove("last_entry_tracker.json")
                     st.rerun()
         else:
-            st.warning("鈿狅笍 No hay 煤ltima entrada registrada. Se agregar谩n todas las nuevas entradas.")
+            st.warning("⚠️ No hay última entrada registrada. Se agregarán todas las nuevas entradas.")
         
         st.markdown("---")
         
@@ -551,18 +551,18 @@ def main():
         
         with col1:
             uploaded_files = st.file_uploader(
-                "Sube uno o m谩s recibos",
+                "Sube uno o más recibos",
                 type=['jpg', 'jpeg', 'png', 'webp'],
                 accept_multiple_files=True
             )
         
         with col2:
-            auto_save = st.checkbox("Guardar autom谩ticamente", value=True)
+            auto_save = st.checkbox("Guardar automáticamente", value=True)
         
         if uploaded_files:
             st.markdown("---")
             
-            if st.button("馃攳 Procesar Recibos", use_container_width=True, type="primary"):
+            if st.button("🔍 Procesar Recibos", use_container_width=True, type="primary"):
                 progress_bar = st.progress(0)
                 status_container = st.container()
                 
@@ -572,7 +572,7 @@ def main():
                 for idx, uploaded_file in enumerate(uploaded_files):
                     try:
                         with status_container:
-                            st.info(f"Procesando: {uploaded_file.name}... 鈴?)
+                            st.info(f"Procesando: {uploaded_file.name}... Espera un momento")
                         
                         # Extract data using Claude
                         extracted_data = extract_receipt_data(uploaded_file)
@@ -593,40 +593,40 @@ def main():
                 
                 # Show results
                 st.markdown("---")
-                st.markdown("### 馃搳 An谩lisis de Recibos")
+                st.markdown("### 📊 Análisis de Recibos")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("鉁?Nuevas Entradas", len(new_entries))
+                    st.metric("✅ Nuevas Entradas", len(new_entries))
                 with col2:
-                    st.metric("鈿狅笍 Duplicadas", len(duplicate_entries))
+                    st.metric("⚠️ Duplicadas", len(duplicate_entries))
                 with col3:
-                    st.metric("鉂?Errores", len(extraction_errors))
+                    st.metric("❌ Errores", len(extraction_errors))
                 
                 st.markdown("---")
                 
                 # Show duplicates warning
                 if duplicate_entries:
-                    with st.expander(f"鈿狅笍 Duplicadas ({len(duplicate_entries)}) - Ya est谩n en el sistema"):
+                    with st.expander(f"⚠️ Duplicadas ({len(duplicate_entries)}) - Ya están en el sistema"):
                         dup_df = pd.DataFrame([get_entry_summary(e) for e in duplicate_entries])
                         st.dataframe(dup_df, use_container_width=True)
                 
                 # Show errors
                 if extraction_errors:
-                    with st.expander(f"鉂?Errores ({len(extraction_errors)})"):
+                    with st.expander(f"❌ Errores ({len(extraction_errors)})"):
                         for error in extraction_errors:
                             st.error(error)
                 
                 # MAIN: Show new entries for approval
                 if new_entries:
-                    st.success(f"鉁?Se encontraron {len(new_entries)} nuevas entradas")
+                    st.success(f"✅ Se encontraron {len(new_entries)} nuevas entradas")
                     
-                    with st.expander("馃搵 Vista Previa de Nuevas Entradas", expanded=True):
+                    with st.expander("📋 Vista Previa de Nuevas Entradas", expanded=True):
                         preview_df = pd.DataFrame([get_entry_summary(e) for e in new_entries])
                         st.dataframe(preview_df, use_container_width=True)
                         
                         # Show detailed preview
-                        st.markdown("### 馃攳 Detalles de Cada Entrada")
+                        st.markdown("### 🔍 Detalles de Cada Entrada")
                         for idx, entry in enumerate(new_entries, 1):
                             with st.expander(f"Entrada {idx}: {entry['categoria']} - ${entry['monto']:,.2f}"):
                                 col1, col2 = st.columns(2)
@@ -635,9 +635,9 @@ def main():
                                     st.write(f"**Monto:** ${entry['monto']:,.2f}")
                                     st.write(f"**Tipo:** {entry['tipo'].upper()}")
                                 with col2:
-                                    st.write(f"**Categor铆a:** {entry['categoria']}")
+                                    st.write(f"**Categoría:** {entry['categoria']}")
                                     st.write(f"**Conductor:** {entry['conductor']}")
-                                    st.write(f"**Descripci贸n:** {entry['descripcion']}")
+                                    st.write(f"**Descripción:** {entry['descripcion']}")
                     
                     # Confirmation button
                     st.markdown("---")
@@ -645,7 +645,7 @@ def main():
                     confirm_col1, confirm_col2, confirm_col3 = st.columns([1, 1, 2])
                     
                     with confirm_col1:
-                        if st.button("鉁?Guardar Todas", use_container_width=True, type="primary"):
+                        if st.button("✅ Guardar Todas", use_container_width=True, type="primary"):
                             # Add to dataframe
                             new_df = pd.DataFrame(new_entries)
                             df = pd.concat([df, new_df], ignore_index=True)
@@ -666,7 +666,7 @@ def main():
                                     'monto': last_new['monto']
                                 })
                             
-                            st.success(f"鉁?Se agregaron {len(new_entries)} transacciones correctamente")
+                            st.success(f"✅ Se agregaron {len(new_entries)} transacciones correctamente")
                             st.balloons()
                             
                             # Rerun to refresh
@@ -674,15 +674,15 @@ def main():
                             st.rerun()
                     
                     with confirm_col2:
-                        if st.button("鉂?Cancelar", use_container_width=True):
+                        if st.button("❌ Cancelar", use_container_width=True):
                             st.info("Cancelado. No se agregaron cambios.")
                     
                     with confirm_col3:
-                        st.info(f"馃搶 Revisi贸n pendiente: {len(new_entries)} nuevas entradas")
+                        st.info(f"📌 Revisión pendiente: {len(new_entries)} nuevas entradas")
                 
                 else:
                     if len(new_entries) == 0 and len(duplicate_entries) > 0:
-                        st.warning(f"鈿狅笍 Todas las entradas ({len(duplicate_entries)}) ya est谩n en el sistema. Nada nuevo que agregar.")
+                        st.warning(f"⚠️ Todas las entradas ({len(duplicate_entries)}) ya están en el sistema. Nada nuevo que agregar.")
                     else:
                         st.info("No se encontraron nuevas entradas para procesar.")
             
@@ -690,9 +690,9 @@ def main():
                 st.info("Haz clic en 'Procesar Recibos' para extraer datos de los recibos cargados")
     
     # ================== PAGE: DASHBOARD ==================
-    elif page == "馃搱 Dashboard":
+    elif page == "📈 Dashboard":
         st.markdown('<div class="header-animated">', unsafe_allow_html=True)
-        st.markdown("## 馃搱 Dashboard Diario", unsafe_allow_html=True)
+        st.markdown("## 📈 Dashboard Diario", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
         if len(df) == 0:
@@ -703,11 +703,11 @@ def main():
             col1, col2, col3 = st.columns([1, 3, 1])
             
             with col1:
-                st.markdown("**馃搮 Per铆odo:**")
+                st.markdown("**📅 Período:**")
             
             with col2:
                 days_range = st.slider(
-                    "Selecciona rango de d铆as",
+                    "Selecciona rango de días",
                     min_value=7,
                     max_value=365,
                     value=30,
@@ -716,7 +716,7 @@ def main():
                 )
             
             with col3:
-                if st.button("馃攧 Actualizar", use_container_width=True):
+                if st.button("🔄 Actualizar", use_container_width=True):
                     st.rerun()
             
             st.markdown('</div>', unsafe_allow_html=True)
@@ -732,7 +732,7 @@ def main():
             with col1:
                 ingresos = filtered_df[filtered_df['tipo'] == 'ingreso']['monto'].sum()
                 st.metric(
-                    "馃挵 Ingresos",
+                    "💰 Ingresos",
                     f"${ingresos:,.0f}",
                     f"({len(filtered_df[filtered_df['tipo'] == 'ingreso'])} transacciones)",
                     border=True
@@ -741,7 +741,7 @@ def main():
             with col2:
                 egresos = filtered_df[filtered_df['tipo'] == 'egreso']['monto'].sum()
                 st.metric(
-                    "馃搳 Egresos",
+                    "📊 Egresos",
                     f"${egresos:,.0f}",
                     f"({len(filtered_df[filtered_df['tipo'] == 'egreso'])} transacciones)",
                     border=True
@@ -750,9 +750,9 @@ def main():
             with col3:
                 neto = ingresos - egresos
                 st.metric(
-                    "馃挼 Neto",
+                    "💵 Neto",
                     f"${neto:,.0f}",
-                    delta=f"{'鈫? if neto > 0 else '鈫?} {abs(neto/ingresos*100) if ingresos > 0 else 0:.1f}%" if ingresos > 0 else "鈥?,
+                    delta=f"{'↑' if neto > 0 else '↓'} {abs(neto/ingresos*100) if ingresos > 0 else 0:.1f}%" if ingresos > 0 else "—",
                     delta_color="inverse" if neto < 0 else "normal",
                     border=True
                 )
@@ -760,9 +760,9 @@ def main():
             with col4:
                 current_balance = df['saldo'].iloc[-1] if len(df) > 0 else 0
                 st.metric(
-                    "馃彟 Balance",
+                    "🏦 Balance",
                     f"${current_balance:,.0f}",
-                    f"{'鉁?Positivo' if current_balance > 0 else '鈿?Negativo'}",
+                    f"{'✓ Positivo' if current_balance > 0 else '⚠ Negativo'}",
                     border=True
                 )
             
@@ -775,11 +775,11 @@ def main():
             col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown("### 馃搱 Tendencia de Balance")
+                st.markdown("### 📈 Tendencia de Balance")
                 plot_daily_balance(filtered_df if len(filtered_df) > 0 else df)
             
             with col2:
-                st.markdown("### 馃捁 Ingresos vs Egresos")
+                st.markdown("### 💹 Ingresos vs Egresos")
                 plot_income_vs_expenses(filtered_df if len(filtered_df) > 0 else df, days=days_range)
             
             st.markdown('</div>', unsafe_allow_html=True)
@@ -794,11 +794,11 @@ def main():
                 col1, col2 = st.columns([1.2, 0.8])
                 
                 with col1:
-                    st.markdown("### 馃搳 Desglose de Gastos")
+                    st.markdown("### 📊 Desglose de Gastos")
                     plot_expense_breakdown(expenses)
                 
                 with col2:
-                    st.markdown("### 馃搵 Por Categor铆a")
+                    st.markdown("### 📋 Por Categoría")
                     for cat, amount in expenses.items():
                         st.write(f"**{cat}**")
                         st.write(f"${amount:,.0f}")
@@ -807,9 +807,9 @@ def main():
             st.markdown('</div>', unsafe_allow_html=True)
     
     # ================== PAGE: TRANSACCIONES ==================
-    elif page == "馃搵 Transacciones":
+    elif page == "📋 Transacciones":
         st.markdown('<div class="header-animated">', unsafe_allow_html=True)
-        st.markdown("## 馃搵 Registro de Transacciones", unsafe_allow_html=True)
+        st.markdown("## 📋 Registro de Transacciones", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
         if len(df) == 0:
@@ -822,10 +822,10 @@ def main():
                 tipo_filter = st.selectbox("Tipo", ["Todos", "ingreso", "egreso"])
             
             with col2:
-                cat_filter = st.multiselect("Categor铆a", df['categoria'].unique(), default=df['categoria'].unique())
+                cat_filter = st.multiselect("Categoría", df['categoria'].unique(), default=df['categoria'].unique())
             
             with col3:
-                days_back = st.slider("脷ltimos X d铆as", 1, 365, 30)
+                days_back = st.slider("Últimos X días", 1, 365, 30)
             
             # Filter data
             filtered_df = df[df['fecha'] >= pd.Timestamp.now() - timedelta(days=days_back)].copy()
@@ -858,22 +858,22 @@ def main():
             # Download
             csv = display_df.to_csv(index=False)
             st.download_button(
-                label="馃摜 Descargar CSV",
+                label="📥 Descargar CSV",
                 data=csv,
                 file_name=f"ford7_transacciones_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv"
             )
     
-    # ================== PAGE: DESEMPE脩O CONDUCTORES ==================
-    elif page == "馃懆鈥嶐煉?Desempe帽o Conductores":
+    # ================== PAGE: DESEMPEÑO CONDUCTORES ==================
+    elif page == "👨‍💼 Desempeño Conductores":
         st.markdown('<div class="header-animated">', unsafe_allow_html=True)
-        st.markdown("## 馃懆鈥嶐煉?Desempe帽o de Conductores", unsafe_allow_html=True)
+        st.markdown("## 👨‍💼 Desempeño de Conductores", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
         if len(df) == 0:
             st.warning("No hay datos de conductores")
         else:
-            days = st.slider("Analizar 煤ltimos X d铆as", 1, 365, 30)
+            days = st.slider("Analizar últimos X días", 1, 365, 30)
             
             # Get data for period - EXCLUDE OFFICE STAFF (Marbella)
             last_n_days = df[df['fecha'] >= pd.Timestamp.now() - timedelta(days=days)]
@@ -888,7 +888,7 @@ def main():
             driver_perf = driver_perf.sort_values('Total_Gasto', ascending=False)
             
             if len(driver_perf) == 0:
-                st.info("Sin datos de gastos para este per铆odo")
+                st.info("Sin datos de gastos para este período")
             else:
                 
                 # Bar chart - Total Gasto
@@ -897,7 +897,7 @@ def main():
                 ])
                 
                 fig.update_layout(
-                    title=f"Gasto Total por Conductor - 脷ltimos {days} d铆as",
+                    title=f"Gasto Total por Conductor - Últimos {days} días",
                     xaxis_title="Conductor",
                     yaxis_title="Gasto Total ($)",
                     height=400
@@ -912,7 +912,7 @@ def main():
                 st.markdown("---")
                 
                 # Breakdown by category for each driver
-                st.markdown("### Desglose por Categor铆a (por Conductor)")
+                st.markdown("### Desglose por Categoría (por Conductor)")
                 
                 drivers = sorted(driver_expenses['conductor'].unique())
                 
@@ -929,7 +929,7 @@ def main():
                         cat_breakdown = driver_data.groupby('categoria')['monto'].sum().sort_values(ascending=False)
                         
                         if len(cat_breakdown) > 0:
-                            with st.expander(f"馃懁 {driver} - ${cat_breakdown.sum():,.0f}"):
+                            with st.expander(f"👤 {driver} - ${cat_breakdown.sum():,.0f}"):
                                 # Category pie chart
                                 fig_pie = go.Figure(data=[
                                     go.Pie(labels=cat_breakdown.index, values=cat_breakdown.values, hole=0.3)
@@ -940,7 +940,7 @@ def main():
                                 # Category breakdown table
                                 st.markdown(f"**Total: ${cat_breakdown.sum():,.0f}**")
                                 for cat, amount in cat_breakdown.items():
-                                    st.write(f"鈥?{cat}: ${amount:,.0f}")
+                                    st.write(f"• {cat}: ${amount:,.0f}")
                 
                 st.markdown("---")
                 
@@ -948,7 +948,7 @@ def main():
                 st.markdown("### Transacciones Detalladas por Conductor")
                 
                 for driver in sorted(drivers):
-                    with st.expander(f"馃搵 {driver} - Todas las transacciones"):
+                    with st.expander(f"📋 {driver} - Todas las transacciones"):
                         driver_trans = driver_expenses[driver_expenses['conductor'] == driver].copy()
                         driver_trans_display = driver_trans[['fecha', 'categoria', 'descripcion', 'monto']].sort_values('fecha', ascending=False)
                         driver_trans_display['fecha'] = driver_trans_display['fecha'].astype(str)
@@ -964,23 +964,23 @@ def main():
                             st.metric("Promedio", f"${driver_trans['monto'].mean():,.0f}")
     
     # ================== PAGE: PERSONAL ADMINISTRATIVO ==================
-    elif page == "馃懇鈥嶐煉?Personal Administrativo":
+    elif page == "👩‍💼 Personal Administrativo":
         st.markdown('<div class="header-animated">', unsafe_allow_html=True)
-        st.markdown("## 馃懇鈥嶐煉?Personal Administrativo", unsafe_allow_html=True)
+        st.markdown("## 👩‍💼 Personal Administrativo", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("*Marbella Martinez - Contadora y Administradora*")
         
         if len(df) == 0:
             st.warning("No hay datos")
         else:
-            days = st.slider("Analizar 煤ltimos X d铆as", 1, 365, 30, key="admin_days")
+            days = st.slider("Analizar últimos X días", 1, 365, 30, key="admin_days")
             
             # Get Marbella's data only
             last_n_days = df[df['fecha'] >= pd.Timestamp.now() - timedelta(days=days)]
             marbella_data = last_n_days[last_n_days['conductor'] == 'Marbella Martinez']
             
             if len(marbella_data) == 0:
-                st.info("Sin datos para Marbella Martinez en este per铆odo")
+                st.info("Sin datos para Marbella Martinez en este período")
             else:
                 # Summary metrics
                 marbella_expenses = marbella_data[marbella_data['tipo'] == 'egreso']
@@ -995,15 +995,15 @@ def main():
                     st.metric("# Transacciones", len(marbella_data))
                 
                 with col3:
-                    st.metric("Promedio Transacci贸n", f"${marbella_data[marbella_data['tipo'] == 'egreso']['monto'].mean():,.0f}")
+                    st.metric("Promedio Transacción", f"${marbella_data[marbella_data['tipo'] == 'egreso']['monto'].mean():,.0f}")
                 
                 with col4:
-                    st.metric("Per铆odo", f"脷ltimos {days} d铆as")
+                    st.metric("Período", f"Últimos {days} días")
                 
                 st.markdown("---")
                 
                 # Breakdown by category
-                st.markdown("### Desglose por Categor铆a")
+                st.markdown("### Desglose por Categoría")
                 
                 cat_breakdown = marbella_expenses.groupby('categoria')['monto'].sum().sort_values(ascending=False)
                 
@@ -1019,9 +1019,9 @@ def main():
                         st.plotly_chart(fig, use_container_width=True)
                     
                     with col2:
-                        st.markdown("**Gastos por Categor铆a:**")
+                        st.markdown("**Gastos por Categoría:**")
                         for cat, amount in cat_breakdown.items():
-                            st.write(f"鈥?{cat}: ${amount:,.0f}")
+                            st.write(f"• {cat}: ${amount:,.0f}")
                 
                 st.markdown("---")
                 
@@ -1037,27 +1037,27 @@ def main():
                 st.markdown("---")
                 csv_export = marbella_display.to_csv(index=False)
                 st.download_button(
-                    label="馃摜 Descargar Transacciones (CSV)",
+                    label="📥 Descargar Transacciones (CSV)",
                     data=csv_export,
                     file_name=f"marbella_martinez_{datetime.now().strftime('%Y%m%d')}.csv",
                     mime="text/csv"
                 )
     
-    # ================== PAGE: PRON脫STICO ==================
-    elif page == "馃敭 Pron贸stico":
+    # ================== PAGE: PRONÓSTICO ==================
+    elif page == "🔮 Pronóstico":
         st.markdown('<div class="header-animated">', unsafe_allow_html=True)
-        st.markdown("## 馃敭 Pron贸stico de Flujo de Efectivo", unsafe_allow_html=True)
+        st.markdown("## 🔮 Pronóstico de Flujo de Efectivo", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
         if len(df) < 3:
-            st.warning("Se requieren al menos 3 transacciones para generar pron贸stico")
+            st.warning("Se requieren al menos 3 transacciones para generar pronóstico")
         else:
             forecast_df = forecast_cash_flow(df, days=30)
             
             if forecast_df is not None:
                 plot_forecast(df, forecast_df)
                 
-                st.markdown("### Resumen del Pron贸stico")
+                st.markdown("### Resumen del Pronóstico")
                 current_balance = df['saldo'].iloc[-1]
                 forecast_final = forecast_df['saldo_proyectado'].iloc[-1]
                 change = forecast_final - current_balance
@@ -1066,52 +1066,52 @@ def main():
                 with col1:
                     st.metric("Saldo Actual", f"${current_balance:,.0f}")
                 with col2:
-                    st.metric("Saldo Proyectado (30 d铆as)", f"${forecast_final:,.0f}")
+                    st.metric("Saldo Proyectado (30 días)", f"${forecast_final:,.0f}")
                 with col3:
                     st.metric("Cambio Esperado", f"${change:,.0f}", 
                              delta_color="inverse" if change < 0 else "normal")
                 
                 # Daily breakdown
                 st.markdown("---")
-                st.markdown("### Proyecci贸n Diaria")
+                st.markdown("### Proyección Diaria")
                 st.dataframe(forecast_df.rename(columns={'fecha': 'Fecha', 'saldo_proyectado': 'Saldo Proyectado'}), use_container_width=True)
             else:
-                st.error("No se pudo generar el pron贸stico")
+                st.error("No se pudo generar el pronóstico")
     
-    # ================== PAGE: CONFIGURACI脫N ==================
-    elif page == "鈿欙笍 Configuraci贸n":
+    # ================== PAGE: CONFIGURACIÓN ==================
+    elif page == "⚙️ Configuración":
         st.markdown('<div class="header-animated">', unsafe_allow_html=True)
-        st.markdown("## 鈿欙笍 Configuraci贸n", unsafe_allow_html=True)
+        st.markdown("## ⚙️ Configuración", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        st.markdown("### 馃攳 Seguimiento de Entradas")
+        st.markdown("### 🔍 Seguimiento de Entradas")
         
         last_entry = load_last_entry_tracker()
         
         if last_entry:
             st.info(f"""
-            **脷ltima entrada registrada:**
+            **Última entrada registrada:**
             - Fecha: {last_entry['fecha']}
             - Concepto: {last_entry['concepto']}
             - Monto: ${last_entry['monto']:,.2f}
-            - Descripci贸n: {last_entry['descripcion']}
+            - Descripción: {last_entry['descripcion']}
             """)
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("馃攧 Resetear Tracker", use_container_width=True, type="secondary"):
+                if st.button("🔄 Resetear Tracker", use_container_width=True, type="secondary"):
                     os.remove("last_entry_tracker.json")
-                    st.success("鉁?Tracker reseteado. En el pr贸ximo procesamiento, se agregar谩n todas las entradas nuevas.")
+                    st.success("✓ Tracker reseteado. En el próximo procesamiento, se agregarán todas las entradas nuevas.")
                     st.rerun()
             
             with col2:
-                st.metric("Entradas Despu茅s del 脷ltimo", len(df[df['fecha'] > pd.to_datetime(last_entry['fecha'])]))
+                st.metric("Entradas Después del Último", len(df[df['fecha'] > pd.to_datetime(last_entry['fecha'])]))
         else:
-            st.warning("鈿狅笍 No hay 煤ltima entrada registrada. Se agregar谩n todas las nuevas entradas en el pr贸ximo procesamiento.")
+            st.warning("⚠️ No hay última entrada registrada. Se agregarán todas las nuevas entradas en el próximo procesamiento.")
         
         st.markdown("---")
         
-        st.markdown("### 馃搳 Datos del Sistema")
+        st.markdown("### 📊 Datos del Sistema")
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -1125,30 +1125,30 @@ def main():
         
         st.markdown("---")
         
-        st.markdown("### 馃棏锔?Gesti贸n de Datos")
+        st.markdown("### 🗑️ Gestión de Datos")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("馃攧 Recargar Datos", use_container_width=True):
+            if st.button("🔄 Recargar Datos", use_container_width=True):
                 st.session_state.refresh_data = True
                 st.rerun()
         
         with col2:
-            if st.button("鈿狅笍 Limpiar Datos", use_container_width=True, type="secondary"):
-                if st.checkbox("Confirmar eliminaci贸n de todos los datos"):
+            if st.button("⚠️ Limpiar Datos", use_container_width=True, type="secondary"):
+                if st.checkbox("Confirmar eliminación de todos los datos"):
                     if os.path.exists("ford7_expenses.csv"):
                         os.remove("ford7_expenses.csv")
                     if os.path.exists("last_entry_tracker.json"):
                         os.remove("last_entry_tracker.json")
                     st.session_state.data_df = pd.DataFrame()
-                    st.success("鉁?Datos eliminados")
+                    st.success("✓ Datos eliminados")
                     st.rerun()
 
 if __name__ == "__main__":
     # Check for API key
     if "ANTHROPIC_API_KEY" not in st.secrets:
-        st.error("鈿狅笍 ANTHROPIC_API_KEY no configurada. Por favor, a帽ade tu API key en los secrets.")
+        st.error("⚠️ ANTHROPIC_API_KEY no configurada. Por favor, añade tu API key en los secrets.")
         st.stop()
     
     main()
