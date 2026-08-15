@@ -351,9 +351,105 @@ def plot_forecast(df, forecast_df):
 # ==================== MAIN APP ====================
 def main():
     
-    # Header
-    st.markdown("# 🚛 FORD 7 Expense Dashboard")
-    st.markdown("**Skaai Logistics** - Automated Receipt-to-Dashboard System")
+    # Custom CSS for animations
+    st.markdown("""
+    <style>
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    @keyframes bounceIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.85);
+        }
+        50% {
+            opacity: 1;
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+    
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.7;
+        }
+    }
+    
+    @keyframes spinRotate {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+    
+    .header-animated {
+        animation: fadeInDown 0.6s ease-out;
+    }
+    
+    .metric-card-animated {
+        animation: bounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    
+    .chart-animated {
+        animation: slideInLeft 0.8s ease-out;
+    }
+    
+    .category-animated {
+        animation: slideInRight 0.8s ease-out;
+    }
+    
+    .icon-rotating {
+        display: inline-block;
+        animation: spinRotate 2s linear infinite;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Header with animation
+    st.markdown('<div class="header-animated">', unsafe_allow_html=True)
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        st.markdown("## 🚛")
+    with col2:
+        st.markdown("# FORD 7 Dashboard")
+        st.markdown("**Skaai Logistics** - Real-time Operations | Automated Receipt Processing")
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # Sidebar Navigation
     with st.sidebar:
@@ -377,7 +473,9 @@ def main():
     
     # ================== PAGE: PROCESAR RECIBOS ==================
     if page == "📸 Procesar Recibos":
-        st.header("Procesar Recibos")
+        st.markdown('<div class="header-animated">', unsafe_allow_html=True)
+        st.markdown("## 📸 Procesar Recibos", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("Sube fotos de recibos y el sistema extraerá automáticamente los datos")
         
         col1, col2 = st.columns([2, 1])
@@ -448,59 +546,126 @@ def main():
     
     # ================== PAGE: DASHBOARD ==================
     elif page == "📈 Dashboard":
-        st.header("Dashboard Diario")
+        st.markdown('<div class="header-animated">', unsafe_allow_html=True)
+        st.markdown("## 📈 Dashboard Diario", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         if len(df) == 0:
             st.warning("No hay datos. Por favor, agrega transacciones primero.")
         else:
-            # Top metrics
-            ingresos_hoy, egresos_hoy, neto_hoy, trans_hoy = get_today_summary(df)
-            
-            col1, col2, col3, col4 = st.columns(4)
+            # TIME SLIDER WITH ANIMATION
+            st.markdown('<div class="chart-animated">', unsafe_allow_html=True)
+            col1, col2, col3 = st.columns([1, 3, 1])
             
             with col1:
-                st.metric("💰 Ingresos Hoy", f"${ingresos_hoy:,.0f}", "↑" if ingresos_hoy > 0 else "")
+                st.markdown("**📅 Período:**")
             
             with col2:
-                st.metric("📊 Egresos Hoy", f"${egresos_hoy:,.0f}", "↓" if egresos_hoy > 0 else "")
+                days_range = st.slider(
+                    "Selecciona rango de días",
+                    min_value=7,
+                    max_value=365,
+                    value=30,
+                    step=7,
+                    label_visibility="collapsed"
+                )
             
             with col3:
-                st.metric("💵 Neto Hoy", f"${neto_hoy:,.0f}", 
-                         delta_color="inverse" if neto_hoy < 0 else "normal")
+                if st.button("🔄 Actualizar", use_container_width=True):
+                    st.rerun()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Filter data by range
+            filtered_df = df[df['fecha'] >= pd.Timestamp.now() - timedelta(days=days_range)].copy()
+            
+            # ANIMATED METRIC CARDS
+            st.markdown('<div class="metric-card-animated">', unsafe_allow_html=True)
+            
+            col1, col2, col3, col4 = st.columns(4, gap="small")
+            
+            with col1:
+                ingresos = filtered_df[filtered_df['tipo'] == 'ingreso']['monto'].sum()
+                st.metric(
+                    "💰 Ingresos",
+                    f"${ingresos:,.0f}",
+                    f"({len(filtered_df[filtered_df['tipo'] == 'ingreso'])} transacciones)",
+                    border=True
+                )
+            
+            with col2:
+                egresos = filtered_df[filtered_df['tipo'] == 'egreso']['monto'].sum()
+                st.metric(
+                    "📊 Egresos",
+                    f"${egresos:,.0f}",
+                    f"({len(filtered_df[filtered_df['tipo'] == 'egreso'])} transacciones)",
+                    border=True
+                )
+            
+            with col3:
+                neto = ingresos - egresos
+                st.metric(
+                    "💵 Neto",
+                    f"${neto:,.0f}",
+                    delta=f"{'↑' if neto > 0 else '↓'} {abs(neto/ingresos*100) if ingresos > 0 else 0:.1f}%" if ingresos > 0 else "—",
+                    delta_color="inverse" if neto < 0 else "normal",
+                    border=True
+                )
             
             with col4:
                 current_balance = df['saldo'].iloc[-1] if len(df) > 0 else 0
-                st.metric("🏦 Saldo Actual", f"${current_balance:,.0f}")
+                st.metric(
+                    "🏦 Balance",
+                    f"${current_balance:,.0f}",
+                    f"{'✓ Positivo' if current_balance > 0 else '⚠ Negativo'}",
+                    border=True
+                )
+            
+            st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown("---")
             
-            # Charts
+            # ANIMATED CHARTS
+            st.markdown('<div class="chart-animated">', unsafe_allow_html=True)
             col1, col2 = st.columns(2)
             
             with col1:
-                plot_daily_balance(df)
+                st.markdown("### 📈 Tendencia de Balance")
+                plot_daily_balance(filtered_df if len(filtered_df) > 0 else df)
             
             with col2:
-                plot_income_vs_expenses(df, days=30)
+                st.markdown("### 💹 Ingresos vs Egresos")
+                plot_income_vs_expenses(filtered_df if len(filtered_df) > 0 else df, days=days_range)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown("---")
             
-            # Expense breakdown
-            expenses = get_expense_breakdown(df, days=30)
+            # ANIMATED BREAKDOWN
+            st.markdown('<div class="category-animated">', unsafe_allow_html=True)
+            
+            expenses = get_expense_breakdown(filtered_df if len(filtered_df) > 0 else df, days=days_range)
             if len(expenses) > 0:
-                col1, col2 = st.columns([1, 1])
+                col1, col2 = st.columns([1.2, 0.8])
                 
                 with col1:
+                    st.markdown("### 📊 Desglose de Gastos")
                     plot_expense_breakdown(expenses)
                 
                 with col2:
-                    st.markdown("### Gastos por Categoría (30 días)")
+                    st.markdown("### 📋 Por Categoría")
                     for cat, amount in expenses.items():
-                        st.write(f"**{cat}**: ${amount:,.0f}")
+                        st.write(f"**{cat}**")
+                        st.write(f"${amount:,.0f}")
+                        st.divider()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
     
     # ================== PAGE: TRANSACCIONES ==================
     elif page == "📋 Transacciones":
-        st.header("Registro de Transacciones")
+        st.markdown('<div class="header-animated">', unsafe_allow_html=True)
+        st.markdown("## 📋 Registro de Transacciones", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         if len(df) == 0:
             st.warning("No hay transacciones registradas")
@@ -556,7 +721,9 @@ def main():
     
     # ================== PAGE: DESEMPEÑO CONDUCTORES ==================
     elif page == "👨‍💼 Desempeño Conductores":
-        st.header("Desempeño de Conductores")
+        st.markdown('<div class="header-animated">', unsafe_allow_html=True)
+        st.markdown("## 👨‍💼 Desempeño de Conductores", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         if len(df) == 0:
             st.warning("No hay datos de conductores")
@@ -653,7 +820,9 @@ def main():
     
     # ================== PAGE: PERSONAL ADMINISTRATIVO ==================
     elif page == "👩‍💼 Personal Administrativo":
-        st.header("Gastos Personal Administrativo")
+        st.markdown('<div class="header-animated">', unsafe_allow_html=True)
+        st.markdown("## 👩‍💼 Personal Administrativo", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("*Marbella Martinez - Contadora y Administradora*")
         
         if len(df) == 0:
@@ -731,7 +900,9 @@ def main():
     
     # ================== PAGE: PRONÓSTICO ==================
     elif page == "🔮 Pronóstico":
-        st.header("Pronóstico de Flujo de Efectivo")
+        st.markdown('<div class="header-animated">', unsafe_allow_html=True)
+        st.markdown("## 🔮 Pronóstico de Flujo de Efectivo", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         if len(df) < 3:
             st.warning("Se requieren al menos 3 transacciones para generar pronóstico")
@@ -764,7 +935,9 @@ def main():
     
     # ================== PAGE: CONFIGURACIÓN ==================
     elif page == "⚙️ Configuración":
-        st.header("Configuración")
+        st.markdown('<div class="header-animated">', unsafe_allow_html=True)
+        st.markdown("## ⚙️ Configuración", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("### API Key")
         st.info("La API Key debe estar configurada en los secrets de Streamlit Cloud")
