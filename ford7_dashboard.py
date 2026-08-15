@@ -128,8 +128,8 @@ def image_to_base64(image_file):
     return base64.standard_b64encode(image_file.read()).decode("utf-8")
 
 # ==================== OCR WITH CLAUDE ====================
-def extract_receipt_data(image_file):
-    """Use Claude vision to extract receipt data"""
+def extract_table_data(image_file):
+    """Use Claude vision to extract table/ledger data from screenshots"""
     
     client = anthropic.Anthropic(api_key=st.secrets.get("ANTHROPIC_API_KEY"))
     
@@ -148,28 +148,32 @@ def extract_receipt_data(image_file):
     # Convert to base64
     image_data = image_to_base64(image_file)
     
-    # Claude prompt for receipt analysis
-    prompt = """Analyze this receipt image and extract the following information in JSON format:
+    # Claude prompt for table extraction
+    prompt = """Analiza esta tabla/ledger de FORD 7 y extrae TODAS las filas como JSON.
 
-{
-    "fecha": "YYYY-MM-DD (if visible, otherwise use today's date)",
-    "categoria": "one of: Gas, Nómina, Mantenimiento, Equipo, Tolls, Comida, Otro",
-    "descripcion": "brief description of what was purchased",
-    "monto": numeric amount only (no currency symbol),
-    "tipo": "ingreso or egreso (income or expense)",
-    "conductor": "driver name if visible, otherwise 'Desconocido'"
-}
+Para cada fila, extrae:
+- fecha: YYYY-MM-DD (si no es clara, usa la fecha más cercana lógica)
+- concepto: El nombre de la categoría/concepto (Gas, Nómina, Pago, etc)
+- descripcion: La descripción completa de la transacción
+- ingresos: número si hay ingreso, null si no
+- egresos: número si hay egreso, null si no
 
-Rules:
-- Be accurate with amounts and dates
-- If handwritten, do your best to interpret
-- If date is not visible, use today's date
-- If no driver name, use "Desconocido"
-- Always respond ONLY with valid JSON, no markdown or extra text"""
+Retorna SOLO un array JSON válido, sin markdown ni preamble:
+[
+  {"fecha": "2026-07-20", "concepto": "Pago Oficina Julio", "descripcion": "Renta, servicios", "ingresos": null, "egresos": 2572.25},
+  {"fecha": "2026-07-21", "concepto": "Gas", "descripcion": "Bryan Salazar T. 08:02", "ingresos": null, "egresos": 500.00}
+]
+
+IMPORTANTE:
+- Extrae TODAS las filas visibles
+- Si hay dos columnas de ingresos/egresos, suma y pon el total
+- Fechas deben ser YYYY-MM-DD
+- Números sin formato (sin $ ni comas)
+- Responde SOLO con el JSON array"""
 
     message = client.messages.create(
         model="claude-opus-4-8",
-        max_tokens=500,
+        max_tokens=2000,
         messages=[
             {
                 "role": "user",
@@ -201,8 +205,33 @@ Rules:
             response_text = response_text[4:]
         response_text = response_text.strip()
     
-    data = json.loads(response_text)
-    return data
+    extracted_rows = json.loads(response_text)
+    
+    # Convert to dashboard format
+    entries = []
+    for row in extracted_rows:
+        # Determine tipo
+        if row.get('ingresos') and row['ingresos'] > 0:
+            tipo = 'ingreso'
+            monto = row['ingresos']
+        elif row.get('egresos') and row['egresos'] > 0:
+            tipo = 'egreso'
+            monto = row['egresos']
+        else:
+            continue
+        
+        entries.append({
+            'fecha': row['fecha'],
+            'categoria': row['concepto'],
+            'descripcion': row['descripcion'],
+            'monto': monto,
+            'tipo': tipo,
+            'conductor': 'Desconocido',
+            'saldo': 0,
+            'foto_path': image_file.name
+        })
+    
+    return entries
 
 # ==================== DASHBOARD METRICS ====================
 def get_today_summary(df):
@@ -522,9 +551,9 @@ def main():
     # ================== PAGE: PROCESAR RECIBOS ==================
     if page == "📸 Procesar Recibos":
         st.markdown('<div class="header-animated">', unsafe_allow_html=True)
-        st.markdown("## 📸 Procesar Recibos", unsafe_allow_html=True)
+        st.markdown("## 📸 Procesar Ledger", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown("Sube fotos de recibos y el sistema extraerá automáticamente los datos")
+        st.markdown("Sube una captura de pantalla de tu ledger/tabla y edita los datos antes de guardar")
         
         # Load last entry tracker
         last_entry_tracker = load_last_entry_tracker()
@@ -547,147 +576,193 @@ def main():
         
         st.markdown("---")
         
-        col1, col2 = st.columns([2, 1])
+        uploaded_file = st.file_uploader(
+            "Sube una captura de pantalla del ledger",
+            type=['jpg', 'jpeg', 'png', 'webp']
+        )
         
-        with col1:
-            uploaded_files = st.file_uploader(
-                "Sube uno o más recibos",
-                type=['jpg', 'jpeg', 'png', 'webp'],
-                accept_multiple_files=True
-            )
-        
-        with col2:
-            auto_save = st.checkbox("Guardar automáticamente", value=True)
-        
-        if uploaded_files:
+        if uploaded_file:
             st.markdown("---")
             
-            if st.button("🔍 Procesar Recibos", use_container_width=True, type="primary"):
+            if st.button("🔍 Procesar Tabla", use_container_width=True, type="primary"):
                 progress_bar = st.progress(0)
                 status_container = st.container()
                 
-                extracted_entries = []
-                extraction_errors = []
-                
-                for idx, uploaded_file in enumerate(uploaded_files):
-                    try:
-                        with status_container:
-                            st.info(f"Procesando: {uploaded_file.name}... Espera un momento")
-                        
-                        # Extract data using Claude
-                        extracted_data = extract_receipt_data(uploaded_file)
-                        
-                        # Convert date string to datetime
-                        extracted_data['fecha'] = pd.to_datetime(extracted_data['fecha']).strftime('%Y-%m-%d')
-                        extracted_data['camion'] = 'FORD 7'
-                        extracted_data['foto_path'] = uploaded_file.name
-                        
-                        extracted_entries.append(extracted_data)
-                        progress_bar.progress((idx + 1) / len(uploaded_files))
-                        
-                    except Exception as e:
-                        extraction_errors.append(f"{uploaded_file.name}: {str(e)}")
-                
-                # Find new vs duplicate entries
-                new_entries, duplicate_entries = find_new_entries(extracted_entries, last_entry_tracker)
-                
-                # Show results
-                st.markdown("---")
-                st.markdown("### 📊 Análisis de Recibos")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("✅ Nuevas Entradas", len(new_entries))
-                with col2:
-                    st.metric("⚠️ Duplicadas", len(duplicate_entries))
-                with col3:
-                    st.metric("❌ Errores", len(extraction_errors))
-                
-                st.markdown("---")
-                
-                # Show duplicates warning
-                if duplicate_entries:
-                    with st.expander(f"⚠️ Duplicadas ({len(duplicate_entries)}) - Ya están en el sistema"):
-                        dup_df = pd.DataFrame([get_entry_summary(e) for e in duplicate_entries])
-                        st.dataframe(dup_df, use_container_width=True)
-                
-                # Show errors
-                if extraction_errors:
-                    with st.expander(f"❌ Errores ({len(extraction_errors)})"):
-                        for error in extraction_errors:
-                            st.error(error)
-                
-                # MAIN: Show new entries for approval
-                if new_entries:
-                    st.success(f"✅ Se encontraron {len(new_entries)} nuevas entradas")
+                try:
+                    with status_container:
+                        st.info("Leyendo tabla... Espera un momento")
                     
-                    with st.expander("📋 Vista Previa de Nuevas Entradas", expanded=True):
-                        preview_df = pd.DataFrame([get_entry_summary(e) for e in new_entries])
-                        st.dataframe(preview_df, use_container_width=True)
-                        
-                        # Show detailed preview
-                        st.markdown("### 🔍 Detalles de Cada Entrada")
-                        for idx, entry in enumerate(new_entries, 1):
-                            with st.expander(f"Entrada {idx}: {entry['categoria']} - ${entry['monto']:,.2f}"):
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.write(f"**Fecha:** {entry['fecha']}")
-                                    st.write(f"**Monto:** ${entry['monto']:,.2f}")
-                                    st.write(f"**Tipo:** {entry['tipo'].upper()}")
-                                with col2:
-                                    st.write(f"**Categoría:** {entry['categoria']}")
-                                    st.write(f"**Conductor:** {entry['conductor']}")
-                                    st.write(f"**Descripción:** {entry['descripcion']}")
+                    # Extract data using Claude
+                    extracted_entries = extract_table_data(uploaded_file)
+                    progress_bar.progress(50)
                     
-                    # Confirmation button
+                    with status_container:
+                        st.info("Analizando filas nuevas...")
+                    
+                    # Find new vs duplicate entries
+                    new_entries, duplicate_entries = find_new_entries(extracted_entries, last_entry_tracker)
+                    progress_bar.progress(100)
+                    
+                    # Show results
+                    st.markdown("---")
+                    st.markdown("### 📊 Análisis de Tabla")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("✅ Nuevas Entradas", len(new_entries))
+                    with col2:
+                        st.metric("⚠️ Ya en Sistema", len(duplicate_entries))
+                    
                     st.markdown("---")
                     
-                    confirm_col1, confirm_col2, confirm_col3 = st.columns([1, 1, 2])
+                    # Show duplicates
+                    if duplicate_entries:
+                        with st.expander(f"⚠️ Ya en Sistema ({len(duplicate_entries)})"):
+                            dup_df = pd.DataFrame([get_entry_summary(e) for e in duplicate_entries])
+                            st.dataframe(dup_df, use_container_width=True)
                     
-                    with confirm_col1:
-                        if st.button("✅ Guardar Todas", use_container_width=True, type="primary"):
-                            # Add to dataframe
-                            new_df = pd.DataFrame(new_entries)
-                            df = pd.concat([df, new_df], ignore_index=True)
-                            df = df.drop_duplicates(subset=['fecha', 'monto', 'descripcion'], keep='last')
-                            df = calculate_balance(df)
-                            
-                            # Save
-                            save_data(df)
-                            st.session_state.data_df = df
-                            
-                            # Update tracker with last entry
-                            if len(new_entries) > 0:
-                                last_new = new_entries[-1]
-                                save_last_entry_tracker({
-                                    'fecha': last_new['fecha'],
-                                    'concepto': last_new['categoria'],
-                                    'descripcion': last_new['descripcion'],
-                                    'monto': last_new['monto']
+                    # MAIN: Show editable entries
+                    if new_entries:
+                        st.success(f"✅ Se encontraron {len(new_entries)} nuevas entradas")
+                        
+                        st.markdown("### ✏️ Editar Datos Antes de Guardar")
+                        st.markdown("Revisa y corrige cada fila si es necesario:")
+                        
+                        # Store edited entries in session state
+                        if "edited_entries" not in st.session_state:
+                            st.session_state.edited_entries = new_entries.copy()
+                        
+                        # Create editable form for each entry
+                        edited_data = []
+                        
+                        for idx, entry in enumerate(st.session_state.edited_entries):
+                            with st.container(border=True):
+                                col1, col2, col3, col4, col5 = st.columns(5, gap="small")
+                                
+                                with col1:
+                                    fecha = st.text_input(
+                                        "Fecha",
+                                        value=entry['fecha'],
+                                        key=f"fecha_{idx}",
+                                        label_visibility="collapsed"
+                                    )
+                                
+                                with col2:
+                                    categoria = st.text_input(
+                                        "Concepto",
+                                        value=entry['categoria'],
+                                        key=f"categoria_{idx}",
+                                        label_visibility="collapsed"
+                                    )
+                                
+                                with col3:
+                                    monto = st.number_input(
+                                        "Monto",
+                                        value=float(entry['monto']),
+                                        step=0.01,
+                                        key=f"monto_{idx}",
+                                        label_visibility="collapsed"
+                                    )
+                                
+                                with col4:
+                                    tipo = st.selectbox(
+                                        "Tipo",
+                                        ["ingreso", "egreso"],
+                                        index=0 if entry['tipo'] == 'ingreso' else 1,
+                                        key=f"tipo_{idx}",
+                                        label_visibility="collapsed"
+                                    )
+                                
+                                with col5:
+                                    descripcion = st.text_input(
+                                        "Descripción",
+                                        value=entry['descripcion'][:40],
+                                        key=f"desc_{idx}",
+                                        label_visibility="collapsed"
+                                    )
+                                
+                                # Store edited data
+                                edited_data.append({
+                                    'fecha': fecha,
+                                    'categoria': categoria,
+                                    'descripcion': descripcion,
+                                    'monto': monto,
+                                    'tipo': tipo,
+                                    'conductor': entry['conductor'],
+                                    'saldo': 0,
+                                    'foto_path': entry['foto_path']
                                 })
-                            
-                            st.success(f"✅ Se agregaron {len(new_entries)} transacciones correctamente")
-                            st.balloons()
-                            
-                            # Rerun to refresh
-                            time.sleep(1)
-                            st.rerun()
+                        
+                        # Preview table
+                        st.markdown("---")
+                        st.markdown("### 📋 Vista Previa")
+                        preview_df = pd.DataFrame([
+                            {
+                                'Fecha': e['fecha'],
+                                'Concepto': e['categoria'],
+                                'Descripción': e['descripcion'][:30],
+                                'Monto': f"${e['monto']:,.2f}",
+                                'Tipo': e['tipo'].upper()
+                            }
+                            for e in edited_data
+                        ])
+                        st.dataframe(preview_df, use_container_width=True)
+                        
+                        # Confirmation buttons
+                        st.markdown("---")
+                        
+                        confirm_col1, confirm_col2, confirm_col3 = st.columns([1, 1, 2])
+                        
+                        with confirm_col1:
+                            if st.button("✅ Guardar Todas", use_container_width=True, type="primary"):
+                                # Add to dataframe
+                                new_df = pd.DataFrame(edited_data)
+                                df = pd.concat([df, new_df], ignore_index=True)
+                                df = df.drop_duplicates(subset=['fecha', 'monto', 'descripcion'], keep='last')
+                                df = calculate_balance(df)
+                                
+                                # Save
+                                save_data(df)
+                                st.session_state.data_df = df
+                                
+                                # Update tracker with last entry
+                                if len(edited_data) > 0:
+                                    last_entry = edited_data[-1]
+                                    save_last_entry_tracker({
+                                        'fecha': last_entry['fecha'],
+                                        'concepto': last_entry['categoria'],
+                                        'descripcion': last_entry['descripcion'],
+                                        'monto': last_entry['monto']
+                                    })
+                                
+                                st.success(f"✅ Se agregaron {len(edited_data)} transacciones correctamente")
+                                st.balloons()
+                                
+                                # Clear session state
+                                if "edited_entries" in st.session_state:
+                                    del st.session_state.edited_entries
+                                
+                                time.sleep(1)
+                                st.rerun()
+                        
+                        with confirm_col2:
+                            if st.button("❌ Cancelar", use_container_width=True):
+                                if "edited_entries" in st.session_state:
+                                    del st.session_state.edited_entries
+                                st.info("Cancelado. No se agregaron cambios.")
+                        
+                        with confirm_col3:
+                            st.info(f"📌 Revisión pendiente: {len(edited_data)} nuevas entradas")
                     
-                    with confirm_col2:
-                        if st.button("❌ Cancelar", use_container_width=True):
-                            st.info("Cancelado. No se agregaron cambios.")
-                    
-                    with confirm_col3:
-                        st.info(f"📌 Revisión pendiente: {len(new_entries)} nuevas entradas")
-                
-                else:
-                    if len(new_entries) == 0 and len(duplicate_entries) > 0:
-                        st.warning(f"⚠️ Todas las entradas ({len(duplicate_entries)}) ya están en el sistema. Nada nuevo que agregar.")
                     else:
-                        st.info("No se encontraron nuevas entradas para procesar.")
-            
-            else:
-                st.info("Haz clic en 'Procesar Recibos' para extraer datos de los recibos cargados")
+                        if len(duplicate_entries) > 0:
+                            st.warning(f"⚠️ Todas las entradas ({len(duplicate_entries)}) ya están en el sistema.")
+                        else:
+                            st.info("No se encontraron nuevas entradas.")
+                
+                except Exception as e:
+                    st.error(f"Error procesando tabla: {str(e)}")
+                    st.info("Asegúrate de que la imagen sea clara y contenga una tabla legible.")
     
     # ================== PAGE: DASHBOARD ==================
     elif page == "📈 Dashboard":
