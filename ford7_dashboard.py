@@ -88,26 +88,30 @@ def save_last_entry_tracker(entry_data):
     with open("last_entry_tracker.json", "w") as f:
         json.dump(entry_data, f)
 
-def find_new_entries(extracted_entries, last_entry_tracker):
-    """Find only new entries that aren't already in the system"""
-    if last_entry_tracker is None:
-        return extracted_entries, []
-    
+def find_new_entries_in_db(extracted_entries, df, last_entry_tracker):
+    """Find new entries by comparing against full database"""
     new_entries = []
     duplicate_entries = []
-    last_date = pd.to_datetime(last_entry_tracker.get('fecha', '2020-01-01'))
     
+    if len(df) == 0:
+        # If database is empty, all are new
+        return extracted_entries, []
+    
+    # Get all existing dates and amounts in database
+    existing_combinations = set()
+    for idx, row in df.iterrows():
+        key = (row['fecha'], round(float(row['monto']), 2), row['descripcion'][:30])
+        existing_combinations.add(key)
+    
+    # Check each extracted entry
     for entry in extracted_entries:
-        entry_date = pd.to_datetime(entry['fecha'])
+        entry_date = pd.to_datetime(entry['fecha']).strftime('%Y-%m-%d')
+        key = (entry_date, round(float(entry['monto']), 2), entry['descripcion'][:30])
         
-        # Check if entry is after last known entry
-        if entry_date > last_date:
+        if key not in existing_combinations:
             new_entries.append(entry)
         else:
-            # Check for exact duplicates (same date + amount)
-            if (entry_date == last_date and 
-                abs(float(entry['monto']) - float(last_entry_tracker.get('monto', 0))) < 0.01):
-                duplicate_entries.append(entry)
+            duplicate_entries.append(entry)
     
     return new_entries, duplicate_entries
 
@@ -599,8 +603,8 @@ def main():
                     with status_container:
                         st.info("Analizando filas nuevas...")
                     
-                    # Find new vs duplicate entries
-                    new_entries, duplicate_entries = find_new_entries(extracted_entries, last_entry_tracker)
+                    # Find new vs duplicate entries - CHECK AGAINST FULL DATABASE
+                    new_entries, duplicate_entries = find_new_entries_in_db(extracted_entries, df, last_entry_tracker)
                     progress_bar.progress(100)
                     
                     # Show results
@@ -621,92 +625,51 @@ def main():
                             dup_df = pd.DataFrame([get_entry_summary(e) for e in duplicate_entries])
                             st.dataframe(dup_df, use_container_width=True)
                     
-                    # MAIN: Show editable entries
+                    # MAIN: Show editable entries with selection
                     if new_entries:
                         st.success(f"✅ Se encontraron {len(new_entries)} nuevas entradas")
                         
-                        st.markdown("### ✏️ Editar Datos Antes de Guardar")
-                        st.markdown("Revisa y corrige cada fila si es necesario:")
+                        st.markdown("### ✏️ Selecciona y Edita Antes de Guardar")
                         
-                        # Store edited entries in session state
-                        if "edited_entries" not in st.session_state:
-                            st.session_state.edited_entries = new_entries.copy()
-                        
-                        # Create editable form for each entry
-                        edited_data = []
-                        
-                        for idx, entry in enumerate(st.session_state.edited_entries):
-                            with st.container(border=True):
-                                col1, col2, col3, col4, col5 = st.columns(5, gap="small")
-                                
-                                with col1:
-                                    fecha = st.text_input(
-                                        "Fecha",
-                                        value=entry['fecha'],
-                                        key=f"fecha_{idx}",
-                                        label_visibility="collapsed"
-                                    )
-                                
-                                with col2:
-                                    categoria = st.text_input(
-                                        "Concepto",
-                                        value=entry['categoria'],
-                                        key=f"categoria_{idx}",
-                                        label_visibility="collapsed"
-                                    )
-                                
-                                with col3:
-                                    monto = st.number_input(
-                                        "Monto",
-                                        value=float(entry['monto']),
-                                        step=0.01,
-                                        key=f"monto_{idx}",
-                                        label_visibility="collapsed"
-                                    )
-                                
-                                with col4:
-                                    tipo = st.selectbox(
-                                        "Tipo",
-                                        ["ingreso", "egreso"],
-                                        index=0 if entry['tipo'] == 'ingreso' else 1,
-                                        key=f"tipo_{idx}",
-                                        label_visibility="collapsed"
-                                    )
-                                
-                                with col5:
-                                    descripcion = st.text_input(
-                                        "Descripción",
-                                        value=entry['descripcion'][:40],
-                                        key=f"desc_{idx}",
-                                        label_visibility="collapsed"
-                                    )
-                                
-                                # Store edited data
-                                edited_data.append({
-                                    'fecha': fecha,
-                                    'categoria': categoria,
-                                    'descripcion': descripcion,
-                                    'monto': monto,
-                                    'tipo': tipo,
-                                    'conductor': entry['conductor'],
-                                    'saldo': 0,
-                                    'foto_path': entry['foto_path']
-                                })
-                        
-                        # Preview table
-                        st.markdown("---")
-                        st.markdown("### 📋 Vista Previa")
-                        preview_df = pd.DataFrame([
+                        # Create editable dataframe with checkbox column
+                        edit_df = pd.DataFrame([
                             {
+                                'Guardar': True,
                                 'Fecha': e['fecha'],
                                 'Concepto': e['categoria'],
-                                'Descripción': e['descripcion'][:30],
-                                'Monto': f"${e['monto']:,.2f}",
-                                'Tipo': e['tipo'].upper()
+                                'Descripción': e['descripcion'],
+                                'Monto': float(e['monto']),
+                                'Tipo': e['tipo']
                             }
-                            for e in edited_data
+                            for e in new_entries
                         ])
-                        st.dataframe(preview_df, use_container_width=True)
+                        
+                        # Use data editor for interactive editing
+                        edited_df = st.data_editor(
+                            edit_df,
+                            use_container_width=True,
+                            hide_index=True,
+                            column_config={
+                                "Guardar": st.column_config.CheckboxColumn("✓", width="small"),
+                                "Fecha": st.column_config.TextColumn("Fecha", width="medium"),
+                                "Concepto": st.column_config.TextColumn("Concepto", width="medium"),
+                                "Descripción": st.column_config.TextColumn("Descripción", width="large"),
+                                "Monto": st.column_config.NumberColumn("Monto", width="small", format="$%.2f"),
+                                "Tipo": st.column_config.SelectboxColumn("Tipo", options=["ingreso", "egreso"], width="small"),
+                            }
+                        )
+                        
+                        # Filter selected rows
+                        selected_rows = edited_df[edited_df['Guardar'] == True].copy()
+                        
+                        # Show summary
+                        st.markdown("---")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("Seleccionadas para Guardar", len(selected_rows))
+                        with col2:
+                            total_amount = selected_rows['Monto'].sum()
+                            st.metric("Monto Total", f"${total_amount:,.2f}")
                         
                         # Confirmation buttons
                         st.markdown("---")
@@ -714,45 +677,56 @@ def main():
                         confirm_col1, confirm_col2, confirm_col3 = st.columns([1, 1, 2])
                         
                         with confirm_col1:
-                            if st.button("✅ Guardar Todas", use_container_width=True, type="primary"):
-                                # Add to dataframe
-                                new_df = pd.DataFrame(edited_data)
-                                df = pd.concat([df, new_df], ignore_index=True)
-                                df = df.drop_duplicates(subset=['fecha', 'monto', 'descripcion'], keep='last')
-                                df = calculate_balance(df)
-                                
-                                # Save
-                                save_data(df)
-                                st.session_state.data_df = df
-                                
-                                # Update tracker with last entry
-                                if len(edited_data) > 0:
-                                    last_entry = edited_data[-1]
-                                    save_last_entry_tracker({
-                                        'fecha': last_entry['fecha'],
-                                        'concepto': last_entry['categoria'],
-                                        'descripcion': last_entry['descripcion'],
-                                        'monto': last_entry['monto']
-                                    })
-                                
-                                st.success(f"✅ Se agregaron {len(edited_data)} transacciones correctamente")
-                                st.balloons()
-                                
-                                # Clear session state
-                                if "edited_entries" in st.session_state:
-                                    del st.session_state.edited_entries
-                                
-                                time.sleep(1)
-                                st.rerun()
+                            if st.button("✅ Guardar Seleccionadas", use_container_width=True, type="primary"):
+                                if len(selected_rows) == 0:
+                                    st.warning("⚠️ Selecciona al menos una fila para guardar")
+                                else:
+                                    # Convert edited data back to entries format
+                                    final_entries = []
+                                    for idx, row in selected_rows.iterrows():
+                                        final_entries.append({
+                                            'fecha': row['Fecha'],
+                                            'categoria': row['Concepto'],
+                                            'descripcion': row['Descripción'],
+                                            'monto': row['Monto'],
+                                            'tipo': row['Tipo'],
+                                            'conductor': 'Desconocido',
+                                            'saldo': 0,
+                                            'foto_path': uploaded_file.name
+                                        })
+                                    
+                                    # Add to dataframe
+                                    new_df = pd.DataFrame(final_entries)
+                                    df = pd.concat([df, new_df], ignore_index=True)
+                                    df = df.drop_duplicates(subset=['fecha', 'monto', 'descripcion'], keep='last')
+                                    df = calculate_balance(df)
+                                    
+                                    # Save
+                                    save_data(df)
+                                    st.session_state.data_df = df
+                                    
+                                    # Update tracker with last entry
+                                    if len(final_entries) > 0:
+                                        last_entry = final_entries[-1]
+                                        save_last_entry_tracker({
+                                            'fecha': last_entry['fecha'],
+                                            'concepto': last_entry['categoria'],
+                                            'descripcion': last_entry['descripcion'],
+                                            'monto': last_entry['monto']
+                                        })
+                                    
+                                    st.success(f"✅ Se agregaron {len(final_entries)} transacciones correctamente")
+                                    st.balloons()
+                                    
+                                    time.sleep(1)
+                                    st.rerun()
                         
                         with confirm_col2:
                             if st.button("❌ Cancelar", use_container_width=True):
-                                if "edited_entries" in st.session_state:
-                                    del st.session_state.edited_entries
                                 st.info("Cancelado. No se agregaron cambios.")
                         
                         with confirm_col3:
-                            st.info(f"📌 Revisión pendiente: {len(edited_data)} nuevas entradas")
+                            st.info(f"📌 Total a guardar: {len(selected_rows)} de {len(new_entries)} entradas")
                     
                     else:
                         if len(duplicate_entries) > 0:
