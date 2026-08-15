@@ -631,24 +631,26 @@ def main():
                         
                         st.markdown("### ✏️ Selecciona y Edita Antes de Guardar")
                         
-                        # Create editable dataframe with checkbox column
-                        edit_df = pd.DataFrame([
-                            {
-                                'Guardar': True,
-                                'Fecha': e['fecha'],
-                                'Concepto': e['categoria'],
-                                'Descripción': e['descripcion'],
-                                'Monto': float(e['monto']),
-                                'Tipo': e['tipo']
-                            }
-                            for e in new_entries
-                        ])
+                        # Initialize session state for the dataframe
+                        if "edit_df" not in st.session_state:
+                            st.session_state.edit_df = pd.DataFrame([
+                                {
+                                    'Guardar': True,
+                                    'Fecha': e['fecha'],
+                                    'Concepto': e['categoria'],
+                                    'Descripción': e['descripcion'],
+                                    'Monto': float(e['monto']),
+                                    'Tipo': e['tipo']
+                                }
+                                for e in new_entries
+                            ])
                         
-                        # Use data editor for interactive editing
+                        # Use data editor with session state
                         edited_df = st.data_editor(
-                            edit_df,
+                            st.session_state.edit_df,
                             use_container_width=True,
                             hide_index=True,
+                            key="data_editor",
                             column_config={
                                 "Guardar": st.column_config.CheckboxColumn("✓", width="small"),
                                 "Fecha": st.column_config.TextColumn("Fecha", width="medium"),
@@ -658,6 +660,9 @@ def main():
                                 "Tipo": st.column_config.SelectboxColumn("Tipo", options=["ingreso", "egreso"], width="small"),
                             }
                         )
+                        
+                        # Update session state
+                        st.session_state.edit_df = edited_df
                         
                         # Filter selected rows
                         selected_rows = edited_df[edited_df['Guardar'] == True].copy()
@@ -715,6 +720,10 @@ def main():
                                             'monto': last_entry['monto']
                                         })
                                     
+                                    # Clear session state
+                                    if "edit_df" in st.session_state:
+                                        del st.session_state.edit_df
+                                    
                                     st.success(f"✅ Se agregaron {len(final_entries)} transacciones correctamente")
                                     st.balloons()
                                     
@@ -723,6 +732,8 @@ def main():
                         
                         with confirm_col2:
                             if st.button("❌ Cancelar", use_container_width=True):
+                                if "edit_df" in st.session_state:
+                                    del st.session_state.edit_df
                                 st.info("Cancelado. No se agregaron cambios.")
                         
                         with confirm_col3:
