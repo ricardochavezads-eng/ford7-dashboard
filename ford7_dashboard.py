@@ -629,51 +629,121 @@ def main():
                     if new_entries:
                         st.success(f"✅ Se encontraron {len(new_entries)} nuevas entradas")
                         
-                        st.markdown("### ✏️ Selecciona y Edita Antes de Guardar")
+                        st.markdown("### ✏️ Selecciona Filas para Guardar")
                         
-                        # Initialize session state for the dataframe
-                        if "edit_df" not in st.session_state:
-                            st.session_state.edit_df = pd.DataFrame([
-                                {
-                                    'Guardar': True,
-                                    'Fecha': e['fecha'],
-                                    'Concepto': e['categoria'],
-                                    'Descripción': e['descripcion'],
-                                    'Monto': float(e['monto']),
-                                    'Tipo': e['tipo']
-                                }
-                                for e in new_entries
-                            ])
+                        # Initialize session state for selections
+                        if "row_selections" not in st.session_state:
+                            st.session_state.row_selections = {i: True for i in range(len(new_entries))}
                         
-                        # Use data editor with session state
-                        edited_df = st.data_editor(
-                            st.session_state.edit_df,
-                            use_container_width=True,
-                            hide_index=True,
-                            key="data_editor",
-                            column_config={
-                                "Guardar": st.column_config.CheckboxColumn("✓", width="small"),
-                                "Fecha": st.column_config.TextColumn("Fecha", width="medium"),
-                                "Concepto": st.column_config.TextColumn("Concepto", width="medium"),
-                                "Descripción": st.column_config.TextColumn("Descripción", width="large"),
-                                "Monto": st.column_config.NumberColumn("Monto", width="small", format="$%.2f"),
-                                "Tipo": st.column_config.SelectboxColumn("Tipo", options=["ingreso", "egreso"], width="small"),
-                            }
-                        )
+                        # SELECT ALL / DESELECT ALL buttons
+                        col1, col2, col3 = st.columns([1, 1, 3])
+                        with col1:
+                            if st.button("☑️ Seleccionar Todo", use_container_width=True):
+                                st.session_state.row_selections = {i: True for i in range(len(new_entries))}
+                                st.rerun()
+                        with col2:
+                            if st.button("☐ Deseleccionar", use_container_width=True):
+                                st.session_state.row_selections = {i: False for i in range(len(new_entries))}
+                                st.rerun()
                         
-                        # Update session state
-                        st.session_state.edit_df = edited_df
+                        st.markdown("---")
                         
-                        # Filter selected rows
-                        selected_rows = edited_df[edited_df['Guardar'] == True].copy()
+                        # Display table with checkboxes
+                        cols = st.columns([0.5, 1, 1.5, 2, 1, 1])
+                        
+                        # Header
+                        with cols[0]:
+                            st.markdown("**✓**")
+                        with cols[1]:
+                            st.markdown("**Fecha**")
+                        with cols[2]:
+                            st.markdown("**Concepto**")
+                        with cols[3]:
+                            st.markdown("**Descripción**")
+                        with cols[4]:
+                            st.markdown("**Monto**")
+                        with cols[5]:
+                            st.markdown("**Tipo**")
+                        
+                        st.divider()
+                        
+                        # Rows with checkboxes
+                        edited_entries = []
+                        
+                        for idx, entry in enumerate(new_entries):
+                            cols = st.columns([0.5, 1, 1.5, 2, 1, 1])
+                            
+                            with cols[0]:
+                                st.session_state.row_selections[idx] = st.checkbox(
+                                    "select",
+                                    value=st.session_state.row_selections[idx],
+                                    key=f"select_{idx}",
+                                    label_visibility="collapsed"
+                                )
+                            
+                            with cols[1]:
+                                fecha = st.text_input(
+                                    "fecha",
+                                    value=entry['fecha'],
+                                    key=f"fecha_{idx}",
+                                    label_visibility="collapsed"
+                                )
+                            
+                            with cols[2]:
+                                concepto = st.text_input(
+                                    "concepto",
+                                    value=entry['categoria'],
+                                    key=f"concepto_{idx}",
+                                    label_visibility="collapsed"
+                                )
+                            
+                            with cols[3]:
+                                descripcion = st.text_input(
+                                    "desc",
+                                    value=entry['descripcion'][:50],
+                                    key=f"desc_{idx}",
+                                    label_visibility="collapsed"
+                                )
+                            
+                            with cols[4]:
+                                monto = st.number_input(
+                                    "monto",
+                                    value=float(entry['monto']),
+                                    step=0.01,
+                                    key=f"monto_{idx}",
+                                    label_visibility="collapsed"
+                                )
+                            
+                            with cols[5]:
+                                tipo = st.selectbox(
+                                    "tipo",
+                                    ["ingreso", "egreso"],
+                                    index=0 if entry['tipo'] == 'ingreso' else 1,
+                                    key=f"tipo_{idx}",
+                                    label_visibility="collapsed"
+                                )
+                            
+                            # Store if selected
+                            if st.session_state.row_selections[idx]:
+                                edited_entries.append({
+                                    'fecha': fecha,
+                                    'categoria': concepto,
+                                    'descripcion': descripcion,
+                                    'monto': monto,
+                                    'tipo': tipo,
+                                    'conductor': 'Desconocido',
+                                    'saldo': 0,
+                                    'foto_path': uploaded_file.name
+                                })
                         
                         # Show summary
                         st.markdown("---")
                         col1, col2 = st.columns(2)
                         with col1:
-                            st.metric("Seleccionadas para Guardar", len(selected_rows))
+                            selected_count = len(edited_entries)
+                            st.metric("Seleccionadas", selected_count)
                         with col2:
-                            total_amount = selected_rows['Monto'].sum()
+                            total_amount = sum(e['monto'] for e in edited_entries)
                             st.metric("Monto Total", f"${total_amount:,.2f}")
                         
                         # Confirmation buttons
@@ -683,25 +753,11 @@ def main():
                         
                         with confirm_col1:
                             if st.button("✅ Guardar Seleccionadas", use_container_width=True, type="primary"):
-                                if len(selected_rows) == 0:
+                                if len(edited_entries) == 0:
                                     st.warning("⚠️ Selecciona al menos una fila para guardar")
                                 else:
-                                    # Convert edited data back to entries format
-                                    final_entries = []
-                                    for idx, row in selected_rows.iterrows():
-                                        final_entries.append({
-                                            'fecha': row['Fecha'],
-                                            'categoria': row['Concepto'],
-                                            'descripcion': row['Descripción'],
-                                            'monto': row['Monto'],
-                                            'tipo': row['Tipo'],
-                                            'conductor': 'Desconocido',
-                                            'saldo': 0,
-                                            'foto_path': uploaded_file.name
-                                        })
-                                    
                                     # Add to dataframe
-                                    new_df = pd.DataFrame(final_entries)
+                                    new_df = pd.DataFrame(edited_entries)
                                     df = pd.concat([df, new_df], ignore_index=True)
                                     df = df.drop_duplicates(subset=['fecha', 'monto', 'descripcion'], keep='last')
                                     df = calculate_balance(df)
@@ -711,8 +767,8 @@ def main():
                                     st.session_state.data_df = df
                                     
                                     # Update tracker with last entry
-                                    if len(final_entries) > 0:
-                                        last_entry = final_entries[-1]
+                                    if len(edited_entries) > 0:
+                                        last_entry = edited_entries[-1]
                                         save_last_entry_tracker({
                                             'fecha': last_entry['fecha'],
                                             'concepto': last_entry['categoria'],
@@ -721,10 +777,10 @@ def main():
                                         })
                                     
                                     # Clear session state
-                                    if "edit_df" in st.session_state:
-                                        del st.session_state.edit_df
+                                    if "row_selections" in st.session_state:
+                                        del st.session_state.row_selections
                                     
-                                    st.success(f"✅ Se agregaron {len(final_entries)} transacciones correctamente")
+                                    st.success(f"✅ Se agregaron {len(edited_entries)} transacciones correctamente")
                                     st.balloons()
                                     
                                     time.sleep(1)
@@ -732,12 +788,12 @@ def main():
                         
                         with confirm_col2:
                             if st.button("❌ Cancelar", use_container_width=True):
-                                if "edit_df" in st.session_state:
-                                    del st.session_state.edit_df
+                                if "row_selections" in st.session_state:
+                                    del st.session_state.row_selections
                                 st.info("Cancelado. No se agregaron cambios.")
                         
                         with confirm_col3:
-                            st.info(f"📌 Total a guardar: {len(selected_rows)} de {len(new_entries)} entradas")
+                            st.info(f"📌 Total: {len(edited_entries)} de {len(new_entries)} filas seleccionadas")
                     
                     else:
                         if len(duplicate_entries) > 0:
