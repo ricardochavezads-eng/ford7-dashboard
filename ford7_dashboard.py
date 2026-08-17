@@ -26,6 +26,9 @@ if "data_df" not in st.session_state:
 if "refresh_data" not in st.session_state:
     st.session_state.refresh_data = True
 
+# DEBUG: Check startup
+st.write("✓ Streamlit inicialized")
+
 # ==================== STYLES ====================
 st.markdown("""
     <style>
@@ -1270,10 +1273,10 @@ def main():
                     st.success("✓ Datos eliminados")
                     st.rerun()
 
-if __name__ == "__main__":
-    # Check for API key
-    if "ANTHROPIC_API_KEY" not in st.secrets:
-        st.error("⚠️ ANTHROPIC_API_KEY no configurada. Por favor, añade tu API key en los secrets.")
-        st.stop()
-    
-    main()
+# Check for API key
+if "ANTHROPIC_API_KEY" not in st.secrets:
+    st.error("⚠️ ANTHROPIC_API_KEY no configurada. Por favor, añade tu API key en los secrets.")
+    st.stop()
+
+# Run the app
+main()
