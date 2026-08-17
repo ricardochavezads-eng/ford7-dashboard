@@ -103,13 +103,21 @@ def find_new_entries_in_db(extracted_entries, df, last_entry_tracker):
     # Get all existing dates and amounts in database
     existing_combinations = set()
     for idx, row in df.iterrows():
-        key = (row['fecha'], round(float(row['monto']), 2), row['descripcion'][:30])
+        # Normalize fecha to string YYYY-MM-DD
+        if isinstance(row['fecha'], pd.Timestamp):
+            fecha_str = row['fecha'].strftime('%Y-%m-%d')
+        else:
+            fecha_str = str(row['fecha'])
+        
+        # Create key: fecha + monto (rounded to 2 decimals)
+        # Using just fecha + monto is more reliable than descripcion
+        key = (fecha_str, round(float(row['monto']), 2))
         existing_combinations.add(key)
     
     # Check each extracted entry
     for entry in extracted_entries:
         entry_date = pd.to_datetime(entry['fecha']).strftime('%Y-%m-%d')
-        key = (entry_date, round(float(entry['monto']), 2), entry['descripcion'][:30])
+        key = (entry_date, round(float(entry['monto']), 2))
         
         if key not in existing_combinations:
             new_entries.append(entry)
@@ -658,11 +666,11 @@ def main():
             # SELECT ALL / DESELECT ALL buttons
             col1, col2, col3 = st.columns([1, 1, 3])
             with col1:
-                if st.button("☑️ Seleccionar Todo", use_container_width=True):
+                if st.button("☑️ Seleccionar Todo", use_container_width=True, key="select_all_btn"):
                     st.session_state.row_selections = {i: True for i in range(len(new_entries))}
                     st.rerun()
             with col2:
-                if st.button("☐ Deseleccionar", use_container_width=True):
+                if st.button("☐ Deseleccionar Todo", use_container_width=True, key="deselect_all_btn"):
                     st.session_state.row_selections = {i: False for i in range(len(new_entries))}
                     st.rerun()
             
