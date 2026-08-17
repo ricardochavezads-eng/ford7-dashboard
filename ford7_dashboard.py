@@ -65,6 +65,9 @@ def save_data(df):
 
 def calculate_balance(df):
     """Calculate running balance"""
+    # Ensure fecha is datetime
+    df = df.copy()
+    df['fecha'] = pd.to_datetime(df['fecha'])
     df = df.sort_values('fecha').reset_index(drop=True)
     balance = 0
     saldos = []
@@ -652,11 +655,59 @@ def main():
             
             st.markdown("---")
             
-            # Show duplicates
+            # Show duplicates with selection option
             if duplicate_entries:
-                with st.expander(f"⚠️ Ya en Sistema ({len(duplicate_entries)})"):
-                    dup_df = pd.DataFrame([get_entry_summary(e) for e in duplicate_entries])
-                    st.dataframe(dup_df, use_container_width=True)
+                st.markdown("---")
+                st.markdown(f"### ⚠️ Ya en Sistema ({len(duplicate_entries)})")
+                st.markdown("*Estas filas ya existen en la base de datos, pero puedes agregarlas si lo deseas:*")
+                
+                # Initialize session state for duplicate selections
+                if "dup_selections" not in st.session_state:
+                    st.session_state.dup_selections = {i: False for i in range(len(duplicate_entries))}
+                
+                # Display duplicates with checkboxes
+                dup_cols = st.columns([0.5, 1, 1.5, 2, 1, 1])
+                
+                # Header
+                with dup_cols[0]:
+                    st.markdown("**+**")
+                with dup_cols[1]:
+                    st.markdown("**Fecha**")
+                with dup_cols[2]:
+                    st.markdown("**Concepto**")
+                with dup_cols[3]:
+                    st.markdown("**Descripción**")
+                with dup_cols[4]:
+                    st.markdown("**Monto**")
+                with dup_cols[5]:
+                    st.markdown("**Tipo**")
+                
+                st.divider()
+                
+                # Rows
+                for idx, entry in enumerate(duplicate_entries):
+                    dup_cols = st.columns([0.5, 1, 1.5, 2, 1, 1])
+                    
+                    with dup_cols[0]:
+                        st.session_state.dup_selections[idx] = st.checkbox(
+                            "add_dup",
+                            value=st.session_state.dup_selections[idx],
+                            key=f"dup_select_{idx}",
+                            label_visibility="collapsed"
+                        )
+                    
+                    with dup_cols[1]:
+                        st.text(entry['fecha'])
+                    with dup_cols[2]:
+                        st.text(entry['categoria'])
+                    with dup_cols[3]:
+                        st.text(entry['descripcion'][:30])
+                    with dup_cols[4]:
+                        st.text(f"${entry['monto']:,.2f}")
+                    with dup_cols[5]:
+                        st.text(entry['tipo'].upper())
+                
+                st.markdown("---")
             
             # MAIN: Show editable entries with selection
             st.success(f"✅ Se encontraron {len(new_entries)} nuevas entradas")
@@ -781,13 +832,22 @@ def main():
             
             with confirm_col1:
                 if st.button("✅ Guardar Seleccionadas", use_container_width=True, type="primary"):
-                    if len(edited_entries) == 0:
+                    # Get manually selected duplicates
+                    selected_duplicates = []
+                    if "dup_selections" in st.session_state:
+                        for idx, selected in st.session_state.dup_selections.items():
+                            if selected and idx < len(duplicate_entries):
+                                selected_duplicates.append(duplicate_entries[idx])
+                    
+                    total_to_save = edited_entries + selected_duplicates
+                    
+                    if len(total_to_save) == 0:
                         st.warning("⚠️ Selecciona al menos una fila para guardar")
                     else:
                         # Add to dataframe
-                        new_df = pd.DataFrame(edited_entries)
+                        new_df = pd.DataFrame(total_to_save)
                         df = pd.concat([df, new_df], ignore_index=True)
-                        df = df.drop_duplicates(subset=['fecha', 'monto', 'descripcion'], keep='last')
+                        df = df.drop_duplicates(subset=['fecha', 'monto'], keep='last')
                         df = calculate_balance(df)
                         
                         # Save
@@ -795,8 +855,8 @@ def main():
                         st.session_state.data_df = df
                         
                         # Update tracker with last entry
-                        if len(edited_entries) > 0:
-                            last_entry = edited_entries[-1]
+                        if len(total_to_save) > 0:
+                            last_entry = total_to_save[-1]
                             save_last_entry_tracker({
                                 'fecha': last_entry['fecha'],
                                 'concepto': last_entry['categoria'],
@@ -805,11 +865,15 @@ def main():
                             })
                         
                         # Clear session state
-                        for key in ['new_entries', 'duplicate_entries', 'row_selections', 'uploaded_filename', 'extracted_entries', 'last_entry_tracker']:
+                        for key in ['new_entries', 'duplicate_entries', 'row_selections', 'dup_selections', 'uploaded_filename', 'extracted_entries', 'last_entry_tracker']:
                             if key in st.session_state:
                                 del st.session_state[key]
                         
-                        st.success(f"✅ Se agregaron {len(edited_entries)} transacciones correctamente")
+                        msg = f"✅ Se agregaron {len(edited_entries)} nuevas"
+                        if len(selected_duplicates) > 0:
+                            msg += f" + {len(selected_duplicates)} previamente registradas"
+                        msg += f" (Total: {len(total_to_save)} transacciones)"
+                        st.success(msg)
                         st.balloons()
                         
                         time.sleep(1)
@@ -817,13 +881,15 @@ def main():
             
             with confirm_col2:
                 if st.button("❌ Cancelar", use_container_width=True):
-                    for key in ['new_entries', 'duplicate_entries', 'row_selections', 'uploaded_filename', 'extracted_entries', 'last_entry_tracker']:
+                    for key in ['new_entries', 'duplicate_entries', 'row_selections', 'dup_selections', 'uploaded_filename', 'extracted_entries', 'last_entry_tracker']:
                         if key in st.session_state:
                             del st.session_state[key]
                     st.info("Cancelado. No se agregaron cambios.")
             
             with confirm_col3:
-                st.info(f"📌 Total: {len(edited_entries)} de {len(new_entries)} filas seleccionadas")
+                manual_dup_count = sum(1 for v in st.session_state.dup_selections.values() if v) if "dup_selections" in st.session_state else 0
+                total_selected = len(edited_entries) + manual_dup_count
+                st.info(f"📌 Total: {total_selected} filas ({len(edited_entries)} nuevas + {manual_dup_count} ya existentes)")
     
     # ================== PAGE: DASHBOARD ==================
     elif page == "📈 Dashboard":
